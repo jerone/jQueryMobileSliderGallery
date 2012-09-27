@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="minimum-scale=1.0, width=device-width, maximum-scale=1.0, user-scalable=no, initial-scale=1" />
+	<title>jQuery Mobile Slider Gallery test</title>
+	<link rel="stylesheet" href="style/jquery.mobile.hivg.min.css" />
+	<link rel="stylesheet" href="style/jquery.mobile.structure-1.1.1.min.css" />
+	<style>
+		/*\
+			Gallery Slider;
+		\*/
+		.gallery ul, .gallery li, .gallery img
+		{
+			padding: 0;
+			margin: 0;
+			white-space: nowrap;
+			list-style: none;
+		}
+		.gallery li
+		{
+			display: inline;
+		}
+		.gallery img
+		{
+			margin: 6px 3px;
+		}
+		.gallery-slider
+		{
+			overflow: hidden;
+		}
+		.gallery-slider ul, .gallery-slider li, .gallery-slider img
+		{
+			font-size: 0;
+			line-height: 0;
+		}
+		.gallery nav li
+		{
+			float: left;
+			width: 25%;
+		}
+		.gallery nav li.ui-li-aside
+		{
+			float: right;
+		}
+		.gallery nav .gallery-slider-position
+		{
+			text-align: center;
+			font-size: 1.5em;
+			color: #697279;
+			white-space: normal;
+			width: 50%;
+		}
+		.gallery nav .gallery-slider-position span
+		{
+			display: inline-block;
+			padding: 0 0.1em;
+			text-shadow: 2px 2px 2px rgba(0, 0, 0, .35);
+			cursor: pointer;
+		}
+		.gallery nav .gallery-slider-position span.on
+		{
+			color: #fff;
+		}
+	</style>
+	<script type="text/javascript" src="script/jquery-1.7.2.min.js"></script>
+	<script type="text/javascript" src="script/jquery.mobile-1.1.1.min.js"></script>
+	<script type="text/javascript" src="script/jquery.touchSwipe.min.js"></script>
+	<script type="text/javascript">
+		(function index() {
+
+			"use strict";
+
+			/*\
+			Slider
+			\*/
+			var Slider = function (selector, options) {
+				var that = this;
+
+				// options;
+				this._options = $.extend({
+					center: true, 				// begin width current index in the center;
+					callback: function () { },	// function executed after moving an item (next, previous or manually);
+					click: function () { } 		// function executed after an actual click (not moving);
+				}, options);
+
+				// main selector;
+				this._selector = selector;
+
+				// width of 1 item;
+				this._selectorItemWidth = selector.children().first().outerWidth(true);
+
+				// center items;
+				if (this._options.center) {
+					center.call(this);
+				}
+
+				// number of items;
+				this.length = Math.max(0, selector.children().length - Math.floor(selector.width() / this._selectorItemWidth));
+
+				// current index;
+				this._currentIndex = 0;
+
+				// transition speed;
+				this._speed = 500;
+
+				// check for transform 3D support;
+				this._has3D = has3D();
+				// if no support, we move the items manually;
+				if (!this._has3D) {
+					this._selector.css("position", "relative");
+				}
+
+				// update on window resize;
+				$(window).resize($.proxy(function () {
+
+					// center items;
+					if (this._options.center) {
+						center.call(this);
+					}
+
+					// recalculate length;
+					var length = Math.max(0, selector.children().length - Math.floor(selector.width() / this._selectorItemWidth));
+
+					// only update when value changed;
+					if (length !== this.length) {
+						this.length = length;
+
+						// set new current image index;
+						this._currentIndex = Math.max(Math.min(this._currentIndex, this.length), 0);
+
+						// update slider;
+						this.Set(this._currentIndex, true);
+					}
+				}, this));
+
+				// center item by adding left and right margin;
+				function center() {
+					var margin = (this._selector.outerWidth(true) - this._selectorItemWidth) / 2;
+					this._selector.css({
+						marginLeft: margin,
+						marginRight: margin
+					});
+				}
+
+				// factory;
+				function factory(event, phase, direction, distance, duration) {
+					// If we are moving before swipe, and we are going L or R in X mode, or U or D in Y mode then drag.
+					if (phase === $.fn.swipe.phases.PHASE_MOVE && (direction === $.fn.swipe.directions.LEFT || direction === $.fn.swipe.directions.RIGHT)) {
+						if (direction === $.fn.swipe.directions.LEFT) {
+							this.Scroll(distance, 0);
+						}
+						else if (direction === $.fn.swipe.directions.RIGHT) {
+							this.Scroll(-distance, 0);
+						}
+					}
+					else if (phase === $.fn.swipe.phases.PHASE_END) {
+						if (direction === $.fn.swipe.directions.LEFT) {
+							this.Next(Math.abs(Math.round(distance / this._selectorItemWidth)));
+						}
+						else if (direction === $.fn.swipe.directions.RIGHT) {
+							this.Previous(-Math.round(distance / this._selectorItemWidth));
+						}
+					}
+					else if (phase === $.fn.swipe.phases.PHASE_CANCEL) {
+						this.Scroll(0, this._speed);
+					}
+				};
+
+				// check for transform 3D support;
+				function has3D() {
+					var el = document.createElement('p'), t, has3D,
+						transforms = {
+							'WebkitTransform': '-webkit-transform',
+							'OTransform': '-o-transform',
+							'MSTransform': '-ms-transform',
+							'MozTransform': '-moz-transform',
+							'Transform': 'transform'
+						};
+
+					// Add it to the body to get the computed style;
+					document.body.insertBefore(el, document.body.lastChild);
+
+					for (t in transforms) {
+						if (el.style[t] !== undefined) {
+							el.style[t] = "translate3d(0,0,0)";
+							has3D = window.getComputedStyle(el).getPropertyValue(transforms[t]);
+						}
+					}
+
+					return (has3D !== undefined && has3D.length > 0 && has3D !== "none");
+				}
+
+				// swipe options;
+				var swipeOptions = {
+					triggerOnTouchEnd: true,
+					swipeStatus: function swipeStatus(event, phase, direction, distance, duration) {
+						return factory.call(that, event, phase, direction, distance, duration);
+					},
+					allowPageScroll: "vertical",
+					threshold: this._selectorItemWidth / 2,
+					click: this._options.click
+				};
+				this._selector.swipe(swipeOptions);
+
+				// chanable;
+				return this;
+			};
+
+			// scroll to item;
+			Slider.prototype.Scroll = function (distance, duration) {
+				duration = (duration / 1000).toFixed(1);
+				if (this._has3D) {
+					this._selector.css({
+						"-webkit-transition-duration": duration + "s",
+						"-moz-transition-duration": duration + "s",
+						"-o-transition-duration": duration + "s",
+						"transition-duration": duration + "s"
+					});
+				}
+
+				distance += this._selectorItemWidth * this._currentIndex;
+				distance = (distance < 0 ? "" : "-") + Math.abs(distance).toString();
+				if (this._has3D) {
+					this._selector.css({
+						"-webkit-transform": "translate3d(" + distance + "px,0px,0px)",
+						"-moz-transform": "translate3d(" + distance + "px,0px,0px)",
+						"-o-transform": "translate3d(" + distance + "px,0px,0px)",
+						"transform": "translate3d(" + distance + "px,0px,0px)"
+					});
+				} else {
+					this._selector.css(distance > 0 ? "right" : "left", distance + "px");
+				}
+			};
+
+			// next item;
+			Slider.prototype.Next = function (step) {
+				step = step || 1;
+
+				this._currentIndex = Math.min(this._currentIndex + step, this.length);
+
+				this.Scroll(0, this._speed);
+
+				this._options.callback.call(this, this._currentIndex, $.fn.swipe.directions.RIGHT, step);
+			};
+
+			// previous item;
+			Slider.prototype.Previous = function (step) {
+				step = step || -1;
+
+				this._currentIndex = Math.max(this._currentIndex + step, 0);
+
+				this.Scroll(0, this._speed);
+
+				this._options.callback.call(this, this._currentIndex, $.fn.swipe.directions.LEFT, step);
+			};
+
+			// get current item index;
+			Slider.prototype.Get = function () {
+				return this._currentIndex;
+			};
+
+			// set item;
+			Slider.prototype.Set = function (index, force) {
+				index = Math.max(Math.min(index, this.length), 0);
+
+				var step = this._currentIndex - index;
+				if (force || step !== 0) {
+					var direction = step > 0 ? $.fn.swipe.directions.LEFT : $.fn.swipe.directions.RIGHT;
+
+					this._currentIndex = index;
+
+					this.Scroll(0, this._speed);
+
+					this._options.callback.call(this, this._currentIndex, direction, step);
+				}
+			};
+
+			window.Slider = Slider;
+
+
+
+			/*\
+			test page;
+			\*/
+			$(document).on("pageshow", "#testPage", function () {
+				var page = $(this);
+
+				// gallery;
+				// need pageshow event, because of calculating element width;
+				var gallery = new Slider($(".gallery-slider ul", page), {
+					callback: function (index /*, direction, step*/) {
+						refreshControls(index);
+					},
+					click: function (e, elm) {
+						window.console && console.log(arguments);
+						alert("Clicked on image: " + elm.src);
+					}
+				});
+
+				// must disable all links;
+				$(".gallery-slider a").click(function () {
+					return false;
+				});
+
+				// previous button;
+				var previousButton = $(".gallery-slider-control .prev").click(function () {
+					gallery.Previous();
+				});
+
+				// next button;
+				var nextButton = $(".gallery-slider-control .next").click(function () {
+					gallery.Next();
+				});
+
+				// refresh buttons status and slider position;
+				function refreshControls(index) {
+					index = index || gallery.Get();
+					var length = gallery.length;
+
+					$(".gallery-slider-position span").removeClass("on").eq(index).addClass("on");
+
+					previousButton.button().button(length <= 0 || index <= 0 ? "disable" : "enable");
+					nextButton.button().button(length <= 0 || index >= length ? "disable" : "enable");
+				}
+
+				var galleryLength = -1;
+
+				// resizing window need to update buttons status and slider positions;
+				$(window).on("resize", function () {
+
+					// only update when value changed;
+					if (galleryLength !== gallery.length) {
+						galleryLength = gallery.length;
+
+						// append bullet to reflect slider position;
+						var gallerySliderPosition = $(".gallery-slider-position").empty();
+						for (var i = 0; i < gallery.length + 1; i++) {
+							$("<span/>").html("&bull;").data("slider-index", i).click(function () {
+								gallery.Set($(this).data("slider-index") || 0);
+							}).appendTo(gallerySliderPosition);
+						}
+
+						refreshControls();
+					}
+
+				}).triggerHandler("resize");
+			});
+
+		})();
+	</script>
+</head>
+<body>
+	<div data-role="page" data-title="test" id="testPage">
+		<div data-role="header">
+			<h3>
+				jQuery Mobile Slider Gallery test
+			</h3>
+		</div>
+		<div data-role="content">
+			<div class="gallery">
+				<div class="gallery-slider ui-body-c ui-corner-top ui-shadow">
+					<ul>
+						<li><a href="#">
+							<img src="images/1.jpg" alt="test" width="200px" height="150px" />
+						</a></li>
+						<li><a href="#">
+							<img src="images/2.jpg" alt="test" width="200px" height="150px" />
+						</a></li>
+						<li><a href="#">
+							<img src="images/3.jpg" alt="test" width="200px" height="150px" />
+						</a></li>
+						<li><a href="#">
+							<img src="images/1.jpg" alt="test" width="200px" height="150px" />
+						</a></li>
+						<li><a href="#">
+							<img src="images/2.jpg" alt="test" width="200px" height="150px" />
+						</a></li>
+						<li><a href="#">
+							<img src="images/3.jpg" alt="test" width="200px" height="150px" />
+						</a></li>
+						<li><a href="#">
+							<img src="images/1.jpg" alt="test" width="200px" height="150px" />
+						</a></li>
+						<li><a href="#">
+							<img src="images/2.jpg" alt="test" width="200px" height="150px" />
+						</a></li>
+						<li><a href="#">
+							<img src="images/3.jpg" alt="test" width="200px" height="150px" />
+						</a></li>
+					</ul>
+				</div>
+				<nav class="ui-navbar ui-bar ui-bar-b ui-corner-bottom ui-shadow">
+					<ul class="gallery-slider-control">
+						<li>
+							<input type="button" class="prev" data-role="button" data-mini="true" data-inline="true" value="Previous" />
+						</li>
+						<li class="gallery-slider-position">&nbsp;</li>
+						<li class="ui-li-aside">
+							<input type="button" class="next" data-role="button" data-mini="true" data-inline="true" value="Next" />
+						</li>
+					</ul>
+				</nav>
+			</div>
+		</div>
+	</div>
+</body>
+</html>
